@@ -1,0 +1,139 @@
+import { useState } from "react";
+
+export function PolicySimulator() {
+  const [allocation, setAllocation] = useState(80);
+  const [stringency, setStringency] = useState(60);
+
+  // Toy model for the projection number
+  const variance = -(allocation * 0.32 + stringency * 0.15) / 1.2;
+
+  return (
+    <footer className="h-56 shrink-0 border-t border-titanium-700 bg-titanium-800 flex flex-col">
+      <div className="h-8 shrink-0 border-b border-titanium-700 bg-titanium-900/50 flex items-center px-4 justify-between">
+        <span className="text-[10px] uppercase tracking-widest font-semibold text-titanium-400">
+          Policy Simulator // IF → THEN Matrix
+        </span>
+        <span className="font-mono text-[10px] text-titanium-400">MODEL v2.4 // CAUSAL</span>
+      </div>
+
+      <div className="flex-1 flex min-h-0">
+        {/* Parameters */}
+        <div className="w-1/3 border-r border-titanium-700 p-4 flex flex-col justify-between">
+          <div className="space-y-4">
+            <Slider
+              label="Resource Allocation"
+              value={allocation}
+              onChange={setAllocation}
+              tone="titanium"
+              valueLabel={allocation > 75 ? "MAX" : allocation > 40 ? "MID" : "LOW"}
+            />
+            <Slider
+              label="Border Stringency"
+              value={stringency}
+              onChange={setStringency}
+              tone="amber"
+              valueLabel={stringency > 75 ? "STRICT" : stringency > 40 ? "ELEVATED" : "OPEN"}
+            />
+          </div>
+          <div className="font-mono text-[10px] text-titanium-400">
+            SIMULATION READY. AWAITING EXECUTION.
+          </div>
+        </div>
+
+        {/* Outcome */}
+        <div className="flex-1 p-4 flex items-center gap-6">
+          <div className="w-1/2">
+            <div className="text-xs text-titanium-400 mb-1">Projected Outcome Variance</div>
+            <div className="font-mono text-3xl text-teal-secure tracking-tight">
+              {variance.toFixed(1)}%
+            </div>
+            <div className="text-[10px] text-titanium-400 mt-1 uppercase">
+              Reduction in transmission rate over 14 days
+            </div>
+          </div>
+          <div className="w-px h-full bg-titanium-700" />
+          <div className="w-1/2 space-y-2">
+            <OutcomeRow label="Economic Disruption" value="MODERATE" tone="amber" />
+            <OutcomeRow label="Public Trust Index" value="STABLE (78)" tone="teal" />
+            <OutcomeRow label="Supply Depletion" value="14 DAYS" tone="neutral" />
+            <OutcomeRow label="Funding Efficiency" value="+9%" tone="teal" />
+          </div>
+        </div>
+
+        {/* Authorize */}
+        <div className="w-64 border-l border-titanium-700 p-4 bg-titanium-900/30 flex flex-col justify-center items-center gap-3">
+          <div className="text-[10px] text-titanium-400 uppercase text-center font-mono">
+            Authorization Required
+          </div>
+          <button className="w-full py-3 bg-titanium-700 hover:bg-titanium-600 text-titanium-100 font-mono text-xs uppercase tracking-wider transition-colors border border-titanium-600 focus:outline-none focus:ring-1 focus:ring-amber-glow active:bg-titanium-800">
+            Execute Strategy
+          </button>
+          <div className="font-mono text-[9px] text-titanium-400">
+            Min. 2 ministerial signatures
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+function Slider({
+  label,
+  value,
+  onChange,
+  tone,
+  valueLabel,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  tone: "amber" | "titanium";
+  valueLabel: string;
+}) {
+  const fill = tone === "amber" ? "bg-amber-glow/50" : "bg-titanium-400";
+  const knob = tone === "amber" ? "bg-amber-glow" : "bg-titanium-100";
+  const labelColor = tone === "amber" ? "text-amber-glow" : "text-titanium-100";
+  return (
+    <div>
+      <div className="flex justify-between text-[10px] font-mono mb-1">
+        <span className="text-titanium-400">PARAM: {label}</span>
+        <span className={labelColor}>{valueLabel}</span>
+      </div>
+      <div className="relative">
+        <div className="w-full h-1.5 bg-titanium-900 relative">
+          <div className={`absolute top-0 left-0 h-full ${fill}`} style={{ width: `${value}%` }} />
+          <div
+            className={`absolute top-1/2 -translate-y-1/2 size-3 ${knob} border-2 border-titanium-900 pointer-events-none`}
+            style={{ left: `calc(${value}% - 6px)` }}
+          />
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        />
+      </div>
+    </div>
+  );
+}
+
+function OutcomeRow({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "amber" | "teal" | "neutral";
+}) {
+  const c = tone === "amber" ? "text-amber-glow" : tone === "teal" ? "text-teal-secure" : "text-titanium-100";
+  return (
+    <div className="flex justify-between items-center text-xs">
+      <span className="text-titanium-400">{label}</span>
+      <span className={`font-mono ${c}`}>{value}</span>
+    </div>
+  );
+}
