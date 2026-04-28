@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 
 function useUtcClock() {
-  const [t, setT] = useState(() => new Date());
+  const [t, setT] = useState<string>("--:--:--Z");
   useEffect(() => {
-    const id = setInterval(() => setT(new Date()), 1000);
+    const tick = () => setT(new Date().toISOString().substring(11, 19) + "Z");
+    tick();
+    const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
-  return t.toISOString().substring(11, 19) + "Z";
+  return t;
 }
 
 export function CommandHeader() {
@@ -36,7 +38,7 @@ export function CommandHeader() {
           <span>SECURE UPLINK</span>
         </div>
         <div className="h-4 w-px bg-titanium-600" />
-        <span className="text-titanium-100 tabular-nums">{time}</span>
+        <span className="text-titanium-100 tabular-nums" suppressHydrationWarning>{time}</span>
         <div className="h-4 w-px bg-titanium-600" />
         <span className="text-amber-glow">AUTH: MINISTERIAL OVERRIDE</span>
       </div>
