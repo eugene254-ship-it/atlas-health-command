@@ -1,4 +1,11 @@
+import { useDashboard } from "./dashboard-store";
+
 export function InsightsPanel() {
+  const { directives } = useDashboard();
+  const latest = directives[0];
+  const projection = latest?.projection14d ?? defaultProjection();
+
+  const max = Math.max(...projection);
   return (
     <aside className="border-l border-titanium-700 bg-titanium-800 flex flex-col min-h-0">
       <div className="h-10 shrink-0 border-b border-titanium-700 flex items-center px-4 justify-between">
@@ -11,72 +18,69 @@ export function InsightsPanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
-        {/* Trajectory chart */}
         <div className="mb-6">
-          <h3 className="text-xs uppercase tracking-wider text-titanium-400 mb-3">
-            72h Outbreak Trajectory
-          </h3>
-          <div className="h-32 border border-titanium-700 bg-titanium-900/50 relative flex items-end p-2 gap-1">
-            {[20, 25, 40, 60, 85, 70, 50].map((h, i) => {
-              const peak = h === 85;
+          <div className="flex justify-between items-baseline mb-3">
+            <h3 className="text-xs uppercase tracking-wider text-titanium-400">
+              14-Day Trajectory
+            </h3>
+            <span className="font-mono text-[10px] text-titanium-400">
+              {latest ? latest.code : "BASELINE"}
+            </span>
+          </div>
+          <div className="h-36 border border-titanium-700 bg-titanium-900/50 relative flex items-end p-2 gap-[3px]">
+            {projection.map((v, i) => {
+              const h = (v / max) * 100;
+              const tone = latest ? "bg-teal-secure/60 border-t border-teal-secure" : "bg-amber-dim/60 border-t border-amber-glow/60";
               return (
-                <div
-                  key={i}
-                  className={`w-full ${peak ? "bg-amber-dim border-t border-amber-glow relative" : h >= 60 ? "bg-amber-dim/70 border-t border-amber-glow/60" : "bg-titanium-700"}`}
-                  style={{ height: `${h}%` }}
-                >
-                  {peak && (
-                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 font-mono text-[10px] text-amber-glow bg-titanium-900 px-1 border border-amber-glow/50">
-                      PEAK
+                <div key={i} className={`flex-1 ${tone} relative`} style={{ height: `${h}%` }}>
+                  {i === 0 || i === 6 || i === 13 ? (
+                    <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 font-mono text-[8px] text-titanium-400">
+                      D{i + 1}
                     </div>
-                  )}
+                  ) : null}
                 </div>
               );
             })}
           </div>
-          <p className="text-[11px] text-titanium-400 mt-2 leading-relaxed">
-            Confidence interval 84%. Primary vector projected to breach Sector 7 containment
-            within 48 hours without immediate supply intervention.
+          <p className="text-[11px] text-titanium-400 mt-6 leading-relaxed">
+            {latest
+              ? `Directive ${latest.code} executed. Expected reduction ${latest.expectedReduction.toFixed(1)}% over 14 days. Confidence interval 84%.`
+              : "Awaiting directive execution. Baseline trajectory shown — primary vector projected to breach Sector 7 containment within 48h without intervention."}
           </p>
         </div>
 
         <div className="h-px w-full bg-titanium-700 mb-6" />
 
-        {/* Directives */}
         <div>
           <h3 className="text-xs uppercase tracking-wider text-titanium-400 mb-3">
-            Recommended Directives
+            Recent Directive Payloads
           </h3>
-          <div className="space-y-3">
-            <Directive
-              dot="amber"
-              code="DIRECTIVE ALPHA-1"
-              body="Reroute 15,000 therapeutic courses from Central Depot to Sector 7 frontline facilities."
-              impact="-22% spread"
-              cost="$1.2M"
-            />
-            <Directive
-              dot="muted"
-              code="DIRECTIVE BETA-4"
-              body="Deploy mobile containment units to border crossing Alpha to intercept transient vectors."
-              impact="-14% spread"
-              cost="$0.8M"
-              costMuted
-            />
-            <Directive
-              dot="muted"
-              code="DIRECTIVE GAMMA-2"
-              body="Release $2.1M contingency reserve to western sector NGOs to stabilize trust reporting."
-              impact="+8% trust"
-              cost="$2.1M"
-              costMuted
-            />
+          {directives.length === 0 && (
+            <div className="text-[11px] text-titanium-400 font-mono border border-dashed border-titanium-700 p-3">
+              No directives executed. Configure parameters in the Policy Simulator and authorize.
+            </div>
+          )}
+          <div className="space-y-2">
+            {directives.slice(0, 4).map((d) => (
+              <div key={d.id} className="border border-titanium-600 bg-titanium-900 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-mono text-[10px] text-amber-glow">{d.code}</span>
+                  <span className="font-mono text-[9px] text-titanium-400" suppressHydrationWarning>
+                    {new Date(d.ts).toISOString().substring(11, 19)}Z
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 font-mono text-[10px]">
+                  <Field label="ALLOC" value={`${d.params.allocation}`} />
+                  <Field label="STRING" value={`${d.params.stringency}`} />
+                  <Field label="Δ RATE" value={`${d.expectedReduction.toFixed(1)}%`} tone="teal" />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
         <div className="h-px w-full bg-titanium-700 my-6" />
 
-        {/* Trust graph summary */}
         <div>
           <h3 className="text-xs uppercase tracking-wider text-titanium-400 mb-3">
             Institutional Trust
@@ -93,33 +97,13 @@ export function InsightsPanel() {
   );
 }
 
-function Directive({
-  dot,
-  code,
-  body,
-  impact,
-  cost,
-  costMuted,
-}: {
-  dot: "amber" | "muted";
-  code: string;
-  body: string;
-  impact: string;
-  cost: string;
-  costMuted?: boolean;
-}) {
+function Field({ label, value, tone }: { label: string; value: string; tone?: "teal" }) {
+  const c = tone === "teal" ? "text-teal-secure" : "text-titanium-100";
   return (
-    <button className="block w-full text-left border border-titanium-600 bg-titanium-900 p-3 hover:border-titanium-400 transition-colors">
-      <div className="flex items-center gap-2 mb-2">
-        <span className={`size-2 ${dot === "amber" ? "bg-amber-glow" : "bg-titanium-400"}`} />
-        <span className="font-mono text-[10px] text-titanium-100">{code}</span>
-      </div>
-      <p className="text-[11px] text-titanium-400 mb-3 leading-snug">{body}</p>
-      <div className="flex justify-between items-center font-mono text-[10px]">
-        <span className="text-teal-secure">IMPACT: {impact}</span>
-        <span className={costMuted ? "text-titanium-400" : "text-amber-glow"}>COST: {cost}</span>
-      </div>
-    </button>
+    <div>
+      <div className="text-titanium-400 text-[9px]">{label}</div>
+      <div className={c}>{value}</div>
+    </div>
   );
 }
 
@@ -135,4 +119,12 @@ function TrustRow({ from, to, score }: { from: string; to: string; score: number
       <span className={`font-mono ${tone}`}>{score.toFixed(2)}</span>
     </div>
   );
+}
+
+function defaultProjection() {
+  const out: number[] = [];
+  for (let d = 0; d < 14; d += 1) {
+    out.push(60 + Math.sin(d * 0.6) * 15 + d * 1.5);
+  }
+  return out;
 }
