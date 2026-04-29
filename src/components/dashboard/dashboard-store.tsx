@@ -199,6 +199,13 @@ function buildFundingFlowsFromTemplates(baseTs: number) {
   return SEED_FUNDING_TEMPLATES.map(({ offsetMs, ...rest }) => ({ ...rest, ts: baseTs - offsetMs }));
 }
 
+function resolveFundingSource(hasFundingFlows: boolean, useSeededDemoData: boolean): DashboardDiagnostics["fundingSource"] {
+  if (!useSeededDemoData) return "empty";
+  const absoluteSeed = OPTIONAL_FUNDING_SEEDS.SEED_FUNDING;
+  if (Array.isArray(absoluteSeed) && absoluteSeed.length > 0 && hasFundingFlows) return "absolute-seed";
+  return "template-fallback";
+}
+
 function validateDashboardConstants(lastHydratedAt: number | null, refreshNonce: number, fundingSource: DashboardDiagnostics["fundingSource"]): DashboardDiagnostics {
   const requiredConstants = Object.entries(FUNDING_SEED_CONSTANTS).map(([name, value]) => ({
     name,
@@ -245,7 +252,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [lastHydratedAt, setLastHydratedAt] = useState<number | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [clockTs, setClockTs] = useState(() => Date.UTC(2026, 3, 29, 14, 0, 0));
-  const fundingSource: DashboardDiagnostics["fundingSource"] = fundingFlows.length > 0 ? "template-fallback" : useSeededDemoData ? "template-fallback" : "empty";
+  const fundingSource = resolveFundingSource(fundingFlows.length > 0, useSeededDemoData);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [directives, setDirectives] = useState<Directive[]>([]);
   const [layers, setLayers] = useState<Record<LayerKey, boolean>>({
