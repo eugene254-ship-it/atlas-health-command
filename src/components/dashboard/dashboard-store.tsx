@@ -69,13 +69,24 @@ interface Ctx {
   directives: Directive[];
   layers: Record<LayerKey, boolean>;
   timeWindow: TimeWindow;
+  windowMs: number;
+  windowedSignals: Signal[];
+  windowedFlows: FundingFlow[];
   selectedNode: MapNode | null;
   toggleLayer: (k: LayerKey) => void;
   setTimeWindow: (w: TimeWindow) => void;
   selectNode: (id: string | null) => void;
   recordParamChange: (param: string, value: number) => void;
   executeStrategy: (allocation: number, stringency: number) => Directive;
+  verifyPendingSignatures: () => { verified: number; rejected: number };
 }
+
+export const WINDOW_MS: Record<TimeWindow, number> = {
+  "6H": 6 * 3600_000,
+  "24H": 24 * 3600_000,
+  "7D": 7 * 24 * 3600_000,
+  "30D": 30 * 24 * 3600_000,
+};
 
 const DashboardCtx = createContext<Ctx | null>(null);
 
