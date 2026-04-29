@@ -21,18 +21,47 @@ export function InsightsPanel() {
         <div className="mb-6">
           <div className="flex justify-between items-baseline mb-3">
             <h3 className="text-xs uppercase tracking-wider text-titanium-400">
-              14-Day Trajectory
+              {latest ? "Strategy Result · 14-Day" : "14-Day Trajectory"}
             </h3>
             <span className="font-mono text-[10px] text-titanium-400">
               {latest ? latest.code : "BASELINE"}
             </span>
           </div>
-          <div className="h-36 border border-titanium-700 bg-titanium-900/50 relative flex items-end p-2 gap-[3px]">
+
+          {latest && (
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              <ResultStat label="Δ TRANSMISSION" value={`-${latest.expectedReduction.toFixed(1)}%`} tone="teal" />
+              <ResultStat label="DAY-14 LOAD" value={projection[13].toFixed(0)} tone="neutral" />
+              <ResultStat label="PEAK DAY" value={`D${projection.indexOf(Math.max(...projection)) + 1}`} tone="amber" />
+            </div>
+          )}
+
+          <div className="h-40 border border-titanium-700 bg-titanium-900/50 relative flex items-end p-2 gap-[3px]">
+            {/* Severity bands */}
+            <div className="absolute inset-x-0 top-0 h-1/3 bg-amber-glow/[0.04] border-b border-amber-glow/20 pointer-events-none">
+              <span className="absolute left-1 top-0.5 font-mono text-[8px] text-amber-glow/70">CRITICAL ≥ 70</span>
+            </div>
+            <div className="absolute inset-x-0 top-1/3 h-1/3 bg-amber-glow/[0.02] border-b border-titanium-700 pointer-events-none">
+              <span className="absolute left-1 top-0.5 font-mono text-[8px] text-titanium-400">ELEVATED 40–70</span>
+            </div>
+            <div className="absolute inset-x-0 bottom-0 h-1/3 bg-teal-secure/[0.04] pointer-events-none">
+              <span className="absolute left-1 top-0.5 font-mono text-[8px] text-teal-secure/80">STABLE &lt; 40</span>
+            </div>
+            {/* Baseline reference (flat ~100) */}
+            {latest && (
+              <div className="absolute inset-x-2 border-t border-dashed border-titanium-400/40 pointer-events-none"
+                style={{ top: `${100 - (100 / max) * 100}%` }}>
+                <span className="absolute -top-3 right-0 font-mono text-[8px] text-titanium-400">BASELINE</span>
+              </div>
+            )}
             {projection.map((v, i) => {
               const h = (v / max) * 100;
-              const tone = latest ? "bg-teal-secure/60 border-t border-teal-secure" : "bg-amber-dim/60 border-t border-amber-glow/60";
+              const tone = !latest ? "bg-amber-dim/60 border-t border-amber-glow/60"
+                : v >= 70 ? "bg-amber-glow/40 border-t border-amber-glow"
+                : v >= 40 ? "bg-amber-glow/20 border-t border-amber-glow/60"
+                : "bg-teal-secure/50 border-t border-teal-secure";
               return (
-                <div key={i} className={`flex-1 ${tone} relative`} style={{ height: `${h}%` }}>
+                <div key={i} className={`flex-1 ${tone} relative z-10`} style={{ height: `${h}%` }}>
                   {i === 0 || i === 6 || i === 13 ? (
                     <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 font-mono text-[8px] text-titanium-400">
                       D{i + 1}
@@ -94,6 +123,16 @@ export function InsightsPanel() {
         </div>
       </div>
     </aside>
+  );
+}
+
+function ResultStat({ label, value, tone }: { label: string; value: string; tone: "teal" | "amber" | "neutral" }) {
+  const c = tone === "teal" ? "text-teal-secure" : tone === "amber" ? "text-amber-glow" : "text-titanium-100";
+  return (
+    <div className="border border-titanium-700 bg-titanium-900/60 p-2">
+      <div className="text-[9px] uppercase tracking-widest text-titanium-400">{label}</div>
+      <div className={`font-mono text-base ${c}`}>{value}</div>
+    </div>
   );
 }
 
