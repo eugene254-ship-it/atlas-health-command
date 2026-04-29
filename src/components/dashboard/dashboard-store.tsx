@@ -182,6 +182,27 @@ const SEED_FUNDING_TEMPLATES: Array<Omit<FundingFlow, "ts"> & { offsetMs: number
   { id: "f3", from: "jhb", to: "kam", amountUSD: 2_100_000, purpose: "Maternal programs", offsetMs: 10800_000 },
 ];
 
+const FUNDING_SEED_CONSTANTS = {
+  NODES,
+  SEED_SIGNALS,
+  SEED_FUNDING_TEMPLATES,
+} satisfies Record<string, readonly unknown[]>;
+
+function buildFundingFlowsFromTemplates(baseTs: number) {
+  return SEED_FUNDING_TEMPLATES.map(({ offsetMs, ...rest }) => ({ ...rest, ts: baseTs - offsetMs }));
+}
+
+function validateDashboardConstants(lastHydratedAt: number | null, refreshNonce: number, fundingSource: DashboardDiagnostics["fundingSource"]): DashboardDiagnostics {
+  const constants = Object.entries(FUNDING_SEED_CONSTANTS).map(([name, value]) => ({
+    name,
+    loaded: Array.isArray(value),
+    count: Array.isArray(value) ? value.length : 0,
+    required: true,
+  }));
+  const missingDefinitions = constants.filter((c) => c.required && (!c.loaded || c.count === 0)).map((c) => c.name);
+  return { constants, templateCount: SEED_FUNDING_TEMPLATES.length, fundingSource, missingDefinitions, lastHydratedAt, refreshNonce };
+}
+
 // Pool of synthetic templates the mock feed pulls from
 const POOL: Omit<Signal, "id" | "ts" | "code">[] = [
   { severity: "critical", kind: "outbreak", title: "Hemorrhagic Fever Suspected Cluster", body: "LOC: Kisangani periphery\nVAR: +32% syndromic", nodeId: "kin" },
