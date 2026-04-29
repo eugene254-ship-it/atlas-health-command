@@ -229,10 +229,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   // Start empty on SSR + first client render to avoid hydration mismatch from Date.now().
   // Hydrate seed flows in an effect (client-only) with absolute timestamps.
   const [fundingFlows, setFundingFlows] = useState<FundingFlow[]>([]);
-  useEffect(() => {
-    const now = Date.now();
-    setFundingFlows(SEED_FUNDING_TEMPLATES.map(({ offsetMs, ...rest }) => ({ ...rest, ts: now - offsetMs })));
-  }, []);
+  const [useSeededDemoData, setUseSeededDemoData] = useState(true);
+  const [lastHydratedAt, setLastHydratedAt] = useState<number | null>(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [clockTs, setClockTs] = useState(() => Date.UTC(2026, 3, 29, 14, 0, 0));
+  const fundingSource: DashboardDiagnostics["fundingSource"] = fundingFlows.length > 0 ? "template-fallback" : useSeededDemoData ? "template-fallback" : "empty";
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [directives, setDirectives] = useState<Directive[]>([]);
   const [layers, setLayers] = useState<Record<LayerKey, boolean>>({
