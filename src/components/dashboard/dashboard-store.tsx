@@ -314,8 +314,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   const windowMs = WINDOW_MS[timeWindow];
   const cutoff = Date.now() - windowMs;
-  const windowedSignals = useMemo(() => signals.filter((s) => s.ts >= cutoff), [signals, cutoff]);
-  const windowedFlows = useMemo(() => fundingFlows.filter((f) => f.ts >= cutoff), [fundingFlows, cutoff]);
+  const windowedSignals = useMemo(() => signals.filter((s) => typeof s?.ts === "number" && s.ts >= cutoff), [signals, cutoff]);
+  const windowedFlows = useMemo(() => (fundingFlows ?? []).filter((f) => f && typeof f.ts === "number" && f.ts >= cutoff), [fundingFlows, cutoff]);
 
   const value = useMemo<Ctx>(() => ({
     signals, nodes, fundingFlows, auditLog, directives, layers, timeWindow, windowMs,
