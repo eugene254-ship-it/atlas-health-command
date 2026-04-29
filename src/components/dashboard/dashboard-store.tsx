@@ -58,6 +58,15 @@ export interface Directive {
   signatures: number;
 }
 
+export interface DashboardDiagnostics {
+  constants: { name: string; loaded: boolean; count: number; required: boolean }[];
+  templateCount: number;
+  fundingSource: "absolute-seed" | "template-fallback" | "empty";
+  missingDefinitions: string[];
+  lastHydratedAt: number | null;
+  refreshNonce: number;
+}
+
 export type LayerKey = "outbreaks" | "heat" | "funding" | "hospitals";
 export type TimeWindow = "6H" | "24H" | "7D" | "30D";
 
@@ -73,8 +82,12 @@ interface Ctx {
   windowedSignals: Signal[];
   windowedFlows: FundingFlow[];
   selectedNode: MapNode | null;
+  useSeededDemoData: boolean;
+  diagnostics: DashboardDiagnostics;
   toggleLayer: (k: LayerKey) => void;
   setTimeWindow: (w: TimeWindow) => void;
+  setUseSeededDemoData: (enabled: boolean) => void;
+  refreshDashboardState: () => void;
   selectNode: (id: string | null) => void;
   recordParamChange: (param: string, value: number) => void;
   executeStrategy: (allocation: number, stringency: number) => Directive;
@@ -169,6 +182,46 @@ const SEED_FUNDING_TEMPLATES: Array<Omit<FundingFlow, "ts"> & { offsetMs: number
   { id: "f3", from: "jhb", to: "kam", amountUSD: 2_100_000, purpose: "Maternal programs", offsetMs: 10800_000 },
 ];
 
+type RequiredDashboardSeedConstant = "NODES" | "SEED_SIGNALS" | "SEED_FUNDING_TEMPLATES";
+type OptionalFundingSeedConstant = "SEED_FUNDING";
+
+const FUNDING_SEED_CONSTANTS = {
+  NODES,
+  SEED_SIGNALS,
+  SEED_FUNDING_TEMPLATES,
+} satisfies Record<RequiredDashboardSeedConstant, readonly unknown[]>;
+
+const OPTIONAL_FUNDING_SEEDS: Partial<Record<OptionalFundingSeedConstant, readonly FundingFlow[]>> = {};
+
+function buildFundingFlowsFromTemplates(baseTs: number) {
+  const absoluteSeed = OPTIONAL_FUNDING_SEEDS.SEED_FUNDING;
+  if (Array.isArray(absoluteSeed) && absoluteSeed.length > 0) return absoluteSeed.filter((flow) => typeof flow?.ts === "number");
+  return SEED_FUNDING_TEMPLATES.map(({ offsetMs, ...rest }) => ({ ...rest, ts: baseTs - offsetMs }));
+}
+
+function resolveFundingSource(hasFundingFlows: boolean, useSeededDemoData: boolean): DashboardDiagnostics["fundingSource"] {
+  if (!useSeededDemoData) return "empty";
+  const absoluteSeed = OPTIONAL_FUNDING_SEEDS.SEED_FUNDING;
+  if (Array.isArray(absoluteSeed) && absoluteSeed.length > 0 && hasFundingFlows) return "absolute-seed";
+  return "template-fallback";
+}
+
+function validateDashboardConstants(lastHydratedAt: number | null, refreshNonce: number, fundingSource: DashboardDiagnostics["fundingSource"]): DashboardDiagnostics {
+  const requiredConstants = Object.entries(FUNDING_SEED_CONSTANTS).map(([name, value]) => ({
+    name,
+    loaded: Array.isArray(value),
+    count: Array.isArray(value) ? value.length : 0,
+    required: true,
+  }));
+  const optionalConstants = (["SEED_FUNDING"] satisfies OptionalFundingSeedConstant[]).map((name) => {
+    const value = OPTIONAL_FUNDING_SEEDS[name];
+    return { name, loaded: Array.isArray(value), count: Array.isArray(value) ? value.length : 0, required: false };
+  });
+  const constants = [...requiredConstants, ...optionalConstants];
+  const missingDefinitions = constants.filter((c) => c.required && (!c.loaded || c.count === 0)).map((c) => c.name);
+  return { constants, templateCount: SEED_FUNDING_TEMPLATES.length, fundingSource, missingDefinitions, lastHydratedAt, refreshNonce };
+}
+
 // Pool of synthetic templates the mock feed pulls from
 const POOL: Omit<Signal, "id" | "ts" | "code">[] = [
   { severity: "critical", kind: "outbreak", title: "Hemorrhagic Fever Suspected Cluster", body: "LOC: Kisangani periphery\nVAR: +32% syndromic", nodeId: "kin" },
@@ -195,10 +248,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   // Start empty on SSR + first client render to avoid hydration mismatch from Date.now().
   // Hydrate seed flows in an effect (client-only) with absolute timestamps.
   const [fundingFlows, setFundingFlows] = useState<FundingFlow[]>([]);
-  useEffect(() => {
-    const now = Date.now();
-    setFundingFlows(SEED_FUNDING_TEMPLATES.map(({ offsetMs, ...rest }) => ({ ...rest, ts: now - offsetMs })));
-  }, []);
+  const [useSeededDemoData, setUseSeededDemoData] = useState(true);
+  const [lastHydratedAt, setLastHydratedAt] = useState<number | null>(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [clockTs, setClockTs] = useState(() => Date.UTC(2026, 3, 29, 14, 0, 0));
+  const fundingSource = resolveFundingSource(fundingFlows.length > 0, useSeededDemoData);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [directives, setDirectives] = useState<Directive[]>([]);
   const [layers, setLayers] = useState<Record<LayerKey, boolean>>({
@@ -207,6 +261,31 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("24H");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const auditCounter = useRef(0);
+
+  const hydrateFundingFlows = useCallback((baseTs = Date.now()) => {
+    setClockTs(baseTs);
+    setLastHydratedAt(baseTs);
+    setFundingFlows(useSeededDemoData ? buildFundingFlowsFromTemplates(baseTs) : []);
+  }, [useSeededDemoData]);
+
+  useEffect(() => {
+    hydrateFundingFlows();
+  }, [hydrateFundingFlows, refreshNonce]);
+
+  const refreshDashboardState = useCallback(() => {
+    const nextTs = Date.now();
+    setSignals(SEED_SIGNALS);
+    setNodes(NODES);
+    setSelectedId(null);
+    setDirectives([]);
+    setClockTs(nextTs);
+    setLastHydratedAt(nextTs);
+    setFundingFlows(useSeededDemoData ? buildFundingFlowsFromTemplates(nextTs) : []);
+    setRefreshNonce((n) => n + 1);
+    if (typeof window !== "undefined" && "caches" in window) {
+      void window.caches.keys().then((keys) => Promise.all(keys.map((key) => window.caches.delete(key))));
+    }
+  }, [useSeededDemoData]);
 
   const pushAudit = useCallback((type: AuditEntry["type"], detail: string, signature: AuditEntry["signature"] = "PENDING", actor = "OPS-CMD") => {
     auditCounter.current += 1;
@@ -222,11 +301,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     const id = setInterval(() => {
       const tpl = POOL[Math.floor(Math.random() * POOL.length)];
       n += 1;
+      const ts = Date.now();
+      setClockTs(ts);
       const sig: Signal = {
         ...tpl,
-        id: `live-${Date.now()}-${n}`,
+        id: `live-${ts}-${n}`,
         code: nextCode(tpl.kind),
-        ts: Date.now(),
+        ts,
       };
       setSignals((prev) => [sig, ...prev].slice(0, 40));
       pushAudit("SIGNAL_INGEST", `${sig.code} · ${sig.title}`, "VERIFIED", "INGEST-DAEMON");
@@ -234,7 +315,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       // funding signal → add a flow
       if (sig.kind === "funding" && sig.nodeId) {
         setFundingFlows((prev) => [
-          { id: `fl-${Date.now()}`, from: sig.nodeId === "nai" ? "jhb" : "nai", to: sig.nodeId!, amountUSD: 1_000_000 + Math.floor(Math.random() * 6_000_000), purpose: "Live disbursement", ts: Date.now() },
+          { id: `fl-${ts}`, from: sig.nodeId === "nai" ? "jhb" : "nai", to: sig.nodeId!, amountUSD: 1_000_000 + Math.floor(Math.random() * 6_000_000), purpose: "Live disbursement", ts },
           ...prev,
         ].slice(0, 8));
       }
@@ -313,15 +394,16 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const windowMs = WINDOW_MS[timeWindow];
-  const cutoff = Date.now() - windowMs;
+  const cutoff = clockTs - windowMs;
   const windowedSignals = useMemo(() => signals.filter((s) => typeof s?.ts === "number" && s.ts >= cutoff), [signals, cutoff]);
   const windowedFlows = useMemo(() => (fundingFlows ?? []).filter((f) => f && typeof f.ts === "number" && f.ts >= cutoff), [fundingFlows, cutoff]);
+  const diagnostics = useMemo(() => validateDashboardConstants(lastHydratedAt, refreshNonce, fundingSource), [lastHydratedAt, refreshNonce, fundingSource]);
 
   const value = useMemo<Ctx>(() => ({
     signals, nodes, fundingFlows, auditLog, directives, layers, timeWindow, windowMs,
-    windowedSignals, windowedFlows, selectedNode,
-    toggleLayer, setTimeWindow, selectNode, recordParamChange, executeStrategy, verifyPendingSignatures,
-  }), [signals, nodes, fundingFlows, auditLog, directives, layers, timeWindow, windowMs, windowedSignals, windowedFlows, selectedNode, toggleLayer, selectNode, recordParamChange, executeStrategy, verifyPendingSignatures]);
+    windowedSignals, windowedFlows, selectedNode, useSeededDemoData, diagnostics,
+    toggleLayer, setTimeWindow, setUseSeededDemoData, refreshDashboardState, selectNode, recordParamChange, executeStrategy, verifyPendingSignatures,
+  }), [signals, nodes, fundingFlows, auditLog, directives, layers, timeWindow, windowMs, windowedSignals, windowedFlows, selectedNode, useSeededDemoData, diagnostics, toggleLayer, refreshDashboardState, selectNode, recordParamChange, executeStrategy, verifyPendingSignatures]);
 
   return <DashboardCtx.Provider value={value}>{children}</DashboardCtx.Provider>;
 }
