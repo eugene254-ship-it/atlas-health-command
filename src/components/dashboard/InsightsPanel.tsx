@@ -126,6 +126,16 @@ export function InsightsPanel() {
   );
 }
 
+function ResultStat({ label, value, tone }: { label: string; value: string; tone: "teal" | "amber" | "neutral" }) {
+  const c = tone === "teal" ? "text-teal-secure" : tone === "amber" ? "text-amber-glow" : "text-titanium-100";
+  return (
+    <div className="border border-titanium-700 bg-titanium-900/60 p-2">
+      <div className="text-[9px] uppercase tracking-widest text-titanium-400">{label}</div>
+      <div className={`font-mono text-base ${c}`}>{value}</div>
+    </div>
+  );
+}
+
 function Field({ label, value, tone }: { label: string; value: string; tone?: "teal" }) {
   const c = tone === "teal" ? "text-teal-secure" : "text-titanium-100";
   return (
