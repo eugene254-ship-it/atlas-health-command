@@ -182,11 +182,13 @@ const SEED_FUNDING_TEMPLATES: Array<Omit<FundingFlow, "ts"> & { offsetMs: number
   { id: "f3", from: "jhb", to: "kam", amountUSD: 2_100_000, purpose: "Maternal programs", offsetMs: 10800_000 },
 ];
 
+type RequiredDashboardSeedConstant = "NODES" | "SEED_SIGNALS" | "SEED_FUNDING_TEMPLATES";
+
 const FUNDING_SEED_CONSTANTS = {
   NODES,
   SEED_SIGNALS,
   SEED_FUNDING_TEMPLATES,
-} satisfies Record<string, readonly unknown[]>;
+} satisfies Record<RequiredDashboardSeedConstant, readonly unknown[]>;
 
 function buildFundingFlowsFromTemplates(baseTs: number) {
   return SEED_FUNDING_TEMPLATES.map(({ offsetMs, ...rest }) => ({ ...rest, ts: baseTs - offsetMs }));
@@ -242,6 +244,31 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("24H");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const auditCounter = useRef(0);
+
+  const hydrateFundingFlows = useCallback((baseTs = Date.now()) => {
+    setClockTs(baseTs);
+    setLastHydratedAt(baseTs);
+    setFundingFlows(useSeededDemoData ? buildFundingFlowsFromTemplates(baseTs) : []);
+  }, [useSeededDemoData]);
+
+  useEffect(() => {
+    hydrateFundingFlows();
+  }, [hydrateFundingFlows, refreshNonce]);
+
+  const refreshDashboardState = useCallback(() => {
+    const nextTs = Date.now();
+    setSignals(SEED_SIGNALS);
+    setNodes(NODES);
+    setSelectedId(null);
+    setDirectives([]);
+    setClockTs(nextTs);
+    setLastHydratedAt(nextTs);
+    setFundingFlows(useSeededDemoData ? buildFundingFlowsFromTemplates(nextTs) : []);
+    setRefreshNonce((n) => n + 1);
+    if (typeof window !== "undefined" && "caches" in window) {
+      void window.caches.keys().then((keys) => Promise.all(keys.map((key) => window.caches.delete(key))));
+    }
+  }, [useSeededDemoData]);
 
   const pushAudit = useCallback((type: AuditEntry["type"], detail: string, signature: AuditEntry["signature"] = "PENDING", actor = "OPS-CMD") => {
     auditCounter.current += 1;
