@@ -85,7 +85,10 @@ export function PolicySimulator() {
 }
 
 function AuditPanel() {
-  const { auditLog } = useDashboard();
+  const { auditLog, verifyPendingSignatures } = useDashboard();
+  const pending = auditLog.filter((e) => e.signature === "PENDING" || e.signature === "PARTIAL").length;
+  const verified = auditLog.filter((e) => e.signature === "VERIFIED").length;
+  const rejected = auditLog.filter((e) => e.signature === "REJECTED").length;
   return (
     <div className="w-80 border-l border-titanium-700 flex flex-col bg-titanium-900/30 min-h-0">
       <div className="h-6 shrink-0 border-b border-titanium-700 flex items-center justify-between px-3">
@@ -93,6 +96,20 @@ function AuditPanel() {
           Incident Audit Log
         </span>
         <span className="font-mono text-[9px] text-titanium-400">{auditLog.length} EVT</span>
+      </div>
+      <div className="h-6 shrink-0 border-b border-titanium-700 flex items-center justify-between px-2 bg-titanium-900/50 gap-2">
+        <div className="flex items-center gap-2 font-mono text-[9px]">
+          <span className="text-teal-secure">●{verified}</span>
+          <span className="text-amber-glow">●{pending}P</span>
+          <span className="text-amber-glow">✕{rejected}</span>
+        </div>
+        <button
+          onClick={() => verifyPendingSignatures()}
+          disabled={pending === 0}
+          className="px-2 py-0.5 border border-titanium-600 hover:border-amber-glow hover:text-amber-glow text-titanium-100 font-mono text-[9px] uppercase tracking-wider transition-colors disabled:opacity-40 disabled:hover:border-titanium-600 disabled:hover:text-titanium-100"
+        >
+          Verify signatures
+        </button>
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-thin">
         {auditLog.length === 0 && (
@@ -105,12 +122,19 @@ function AuditPanel() {
             </span>
             <span className={`shrink-0 px-1 ${typeColor(e.type)}`}>{e.type.split("_")[0]}</span>
             <span className="text-titanium-100 flex-1 truncate" title={e.detail}>{e.detail}</span>
-            <span className={`shrink-0 ${sigColor(e.signature)}`}>●</span>
+            <span className={`shrink-0 ${sigColor(e.signature)}`} title={e.signature}>{sigGlyph(e.signature)}</span>
           </div>
         ))}
       </div>
     </div>
   );
+}
+
+function sigGlyph(s: string) {
+  if (s === "VERIFIED") return "●";
+  if (s === "REJECTED") return "✕";
+  if (s === "PARTIAL") return "◐";
+  return "○";
 }
 
 function typeColor(t: string) {
