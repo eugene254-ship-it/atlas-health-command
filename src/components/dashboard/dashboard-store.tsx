@@ -161,10 +161,12 @@ const SEED_SIGNALS: Signal[] = [
   { id: "s4", code: "FND-2204-K", severity: "stable", kind: "funding", title: "Disbursement Confirmed: Global Fund", body: "AMT: $12.0M → Kenya MoH. Bindings: vaccination, maternal health.", ts: Date.UTC(2026, 3, 28, 10, 8, 55), nodeId: "nai" },
 ];
 
-const SEED_FUNDING: FundingFlow[] = [
-  { id: "f1", from: "nai", to: "kin", amountUSD: 12_000_000, purpose: "Outbreak response", ts: Date.now() - 3600_000 },
-  { id: "f2", from: "lag", to: "kin", amountUSD: 4_200_000, purpose: "Cold chain support", ts: Date.now() - 7200_000 },
-  { id: "f3", from: "jhb", to: "kam", amountUSD: 2_100_000, purpose: "Maternal programs", ts: Date.now() - 10800_000 },
+// SSR-safe: use fixed offsets (ms) instead of Date.now() at module scope.
+// Resolved to absolute ts inside the provider on mount to keep server/client renders consistent.
+const SEED_FUNDING_TEMPLATES: Array<Omit<FundingFlow, "ts"> & { offsetMs: number }> = [
+  { id: "f1", from: "nai", to: "kin", amountUSD: 12_000_000, purpose: "Outbreak response", offsetMs: 3600_000 },
+  { id: "f2", from: "lag", to: "kin", amountUSD: 4_200_000, purpose: "Cold chain support", offsetMs: 7200_000 },
+  { id: "f3", from: "jhb", to: "kam", amountUSD: 2_100_000, purpose: "Maternal programs", offsetMs: 10800_000 },
 ];
 
 // Pool of synthetic templates the mock feed pulls from
@@ -190,7 +192,13 @@ function nextCode(kind: SignalKind) {
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const [signals, setSignals] = useState<Signal[]>(SEED_SIGNALS);
   const [nodes, setNodes] = useState<MapNode[]>(NODES);
-  const [fundingFlows, setFundingFlows] = useState<FundingFlow[]>(SEED_FUNDING);
+  // Start empty on SSR + first client render to avoid hydration mismatch from Date.now().
+  // Hydrate seed flows in an effect (client-only) with absolute timestamps.
+  const [fundingFlows, setFundingFlows] = useState<FundingFlow[]>([]);
+  useEffect(() => {
+    const now = Date.now();
+    setFundingFlows(SEED_FUNDING_TEMPLATES.map(({ offsetMs, ...rest }) => ({ ...rest, ts: now - offsetMs })));
+  }, []);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [directives, setDirectives] = useState<Directive[]>([]);
   const [layers, setLayers] = useState<Record<LayerKey, boolean>>({
@@ -306,8 +314,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   const windowMs = WINDOW_MS[timeWindow];
   const cutoff = Date.now() - windowMs;
-  const windowedSignals = useMemo(() => signals.filter((s) => s.ts >= cutoff), [signals, cutoff]);
-  const windowedFlows = useMemo(() => fundingFlows.filter((f) => f.ts >= cutoff), [fundingFlows, cutoff]);
+  const windowedSignals = useMemo(() => signals.filter((s) => typeof s?.ts === "number" && s.ts >= cutoff), [signals, cutoff]);
+  const windowedFlows = useMemo(() => (fundingFlows ?? []).filter((f) => f && typeof f.ts === "number" && f.ts >= cutoff), [fundingFlows, cutoff]);
 
   const value = useMemo<Ctx>(() => ({
     signals, nodes, fundingFlows, auditLog, directives, layers, timeWindow, windowMs,

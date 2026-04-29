@@ -10,8 +10,9 @@ const LAYER_DEFS: { key: LayerKey; label: string; marker: "amber-ping" | "amber-
 const WINDOWS: TimeWindow[] = ["6H", "24H", "7D", "30D"];
 
 export function HealthMap() {
-  const { nodes, windowedFlows, windowedSignals, layers, timeWindow, toggleLayer, setTimeWindow, selectNode } = useDashboard();
+  const { nodes, signals, fundingFlows, windowedFlows, windowedSignals, layers, timeWindow, toggleLayer, setTimeWindow, selectNode } = useDashboard();
   const [legendOpen, setLegendOpen] = useState(true);
+  const [debugOpen, setDebugOpen] = useState(false);
 
   // A node only renders if there's a signal for it inside the window (outbreak nodes), or always for hospitals/depots.
   const activeOutbreakIds = new Set(windowedSignals.filter((s) => s.kind === "outbreak").map((s) => s.nodeId));
@@ -78,7 +79,7 @@ export function HealthMap() {
         })}
 
         {/* Funding flows */}
-        {layers.funding && (
+        {layers.funding && Array.isArray(windowedFlows) && windowedFlows.length > 0 && (
           <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none" viewBox="0 0 100 100">
             <defs>
               <linearGradient id="flow" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -87,11 +88,13 @@ export function HealthMap() {
               </linearGradient>
             </defs>
             {windowedFlows.map((fl) => {
+              if (!fl?.from || !fl?.to) return null;
               const a = nodes.find((n) => n.id === fl.from);
               const b = nodes.find((n) => n.id === fl.to);
               if (!a || !b) return null;
               const x1 = parseFloat(a.left); const y1 = parseFloat(a.top);
               const x2 = parseFloat(b.left); const y2 = parseFloat(b.top);
+              if ([x1, y1, x2, y2].some((v) => Number.isNaN(v))) return null;
               return (
                 <line key={fl.id} x1={x1} y1={y1} x2={x2} y2={y2}
                   stroke="url(#flow)" strokeWidth="0.25" strokeDasharray="0.6 0.4">
@@ -100,6 +103,11 @@ export function HealthMap() {
               );
             })}
           </svg>
+        )}
+        {layers.funding && Array.isArray(windowedFlows) && windowedFlows.length === 0 && (
+          <div className="absolute bottom-24 right-4 z-10 border border-titanium-700 bg-titanium-900/85 backdrop-blur-md px-3 py-2 font-mono text-[10px] text-titanium-400 uppercase tracking-widest">
+            No funding flows in window
+          </div>
         )}
       </div>
 
@@ -212,6 +220,32 @@ export function HealthMap() {
                 <span className="font-mono text-titanium-400 ml-auto">{layerHint(l.key)}</span>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Debug overlay */}
+      <div className="absolute bottom-4 right-4 z-20">
+        <button
+          onClick={() => setDebugOpen((v) => !v)}
+          className="font-mono text-[9px] uppercase tracking-widest text-titanium-400 border border-titanium-700 bg-titanium-900/85 backdrop-blur-md px-2 py-1 hover:text-amber-glow hover:border-amber-glow/50"
+        >
+          {debugOpen ? "× DEBUG" : "DEBUG"}
+        </button>
+        {debugOpen && (
+          <div className="mt-2 w-72 border border-titanium-700 bg-titanium-900/95 backdrop-blur-md p-3 font-mono text-[10px] text-titanium-300 space-y-1">
+            <div className="text-titanium-400 uppercase tracking-widest text-[9px] mb-2">Map Debug · Window {timeWindow}</div>
+            <div>signals.total: <span className="text-teal-secure">{signals?.length ?? 0}</span></div>
+            <div>signals.windowed: <span className="text-teal-secure">{windowedSignals?.length ?? 0}</span></div>
+            <div>fundingFlows.total: <span className="text-teal-secure">{fundingFlows?.length ?? 0}</span></div>
+            <div>windowedFlows: <span className="text-teal-secure">{windowedFlows?.length ?? 0}</span></div>
+            <div>nodes: <span className="text-teal-secure">{nodes?.length ?? 0}</span></div>
+            <div className="pt-2 border-t border-titanium-700 mt-2">
+              <div className="text-titanium-400 uppercase tracking-widest text-[9px] mb-1">Layers</div>
+              {Object.entries(layers).map(([k, v]) => (
+                <div key={k}>{k}: <span className={v ? "text-teal-secure" : "text-titanium-500"}>{v ? "ON" : "OFF"}</span></div>
+              ))}
+            </div>
           </div>
         )}
       </div>
