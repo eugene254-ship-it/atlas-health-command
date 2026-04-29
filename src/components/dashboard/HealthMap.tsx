@@ -192,8 +192,64 @@ export function HealthMap() {
         </div>
       </div>
 
+      {/* Legend */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 border border-titanium-700 bg-titanium-900/85 backdrop-blur-md">
+        <button
+          onClick={() => setLegendOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-3 py-1.5 gap-3"
+        >
+          <span className="font-mono text-[9px] uppercase tracking-widest text-titanium-400">
+            Legend · Window {timeWindow} · {windowedSignals.length} signals · {windowedFlows.length} flows
+          </span>
+          <span className="font-mono text-[9px] text-titanium-400">{legendOpen ? "−" : "+"}</span>
+        </button>
+        {legendOpen && (
+          <div className="border-t border-titanium-700 px-3 py-2 grid grid-cols-2 gap-x-5 gap-y-1.5 min-w-[420px]">
+            {LAYER_DEFS.map((l) => (
+              <div key={l.key} className={`flex items-center gap-2 text-[10px] ${layers[l.key] ? "" : "opacity-40"}`}>
+                <LegendSwatch marker={l.marker} />
+                <span className="font-mono text-titanium-100">{l.label}</span>
+                <span className="font-mono text-titanium-400 ml-auto">{layerHint(l.key)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <NodeDrilldown />
     </section>
+  );
+}
+
+function layerHint(k: LayerKey) {
+  if (k === "outbreaks") return "amber pulse";
+  if (k === "heat") return "amber halo";
+  if (k === "funding") return "teal→amber line";
+  return "teal dot · diamond=depot";
+}
+
+function LegendSwatch({ marker }: { marker: "amber-ping" | "amber-dim" | "teal-dot" | "diamond" | "flow" }) {
+  if (marker === "amber-ping") {
+    return (
+      <span className="relative inline-flex items-center justify-center w-4 h-4">
+        <span className="absolute w-4 h-4 bg-amber-glow/20 rounded-full" />
+        <span className="size-1.5 bg-amber-glow glow-amber" />
+      </span>
+    );
+  }
+  if (marker === "amber-dim") {
+    return <span className="w-4 h-4 rounded-full" style={{ background: "radial-gradient(circle, color-mix(in oklab, var(--amber-glow) 35%, transparent), transparent 70%)" }} />;
+  }
+  if (marker === "teal-dot") {
+    return <span className="size-2 bg-teal-secure glow-teal inline-block" />;
+  }
+  if (marker === "diamond") {
+    return <span className="size-2 bg-titanium-400 inline-block rotate-45" />;
+  }
+  return (
+    <svg width="20" height="6">
+      <line x1="0" y1="3" x2="20" y2="3" stroke="oklch(0.65 0.12 185)" strokeWidth="1.5" strokeDasharray="3 2" />
+    </svg>
   );
 }
 
