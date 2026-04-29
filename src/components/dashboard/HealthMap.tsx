@@ -10,8 +10,9 @@ const LAYER_DEFS: { key: LayerKey; label: string; marker: "amber-ping" | "amber-
 const WINDOWS: TimeWindow[] = ["6H", "24H", "7D", "30D"];
 
 export function HealthMap() {
-  const { nodes, windowedFlows, windowedSignals, layers, timeWindow, toggleLayer, setTimeWindow, selectNode } = useDashboard();
+  const { nodes, signals, fundingFlows, windowedFlows, windowedSignals, layers, timeWindow, toggleLayer, setTimeWindow, selectNode } = useDashboard();
   const [legendOpen, setLegendOpen] = useState(true);
+  const [debugOpen, setDebugOpen] = useState(false);
 
   // A node only renders if there's a signal for it inside the window (outbreak nodes), or always for hospitals/depots.
   const activeOutbreakIds = new Set(windowedSignals.filter((s) => s.kind === "outbreak").map((s) => s.nodeId));
