@@ -284,11 +284,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     const id = setInterval(() => {
       const tpl = POOL[Math.floor(Math.random() * POOL.length)];
       n += 1;
+      const ts = Date.now();
+      setClockTs(ts);
       const sig: Signal = {
         ...tpl,
-        id: `live-${Date.now()}-${n}`,
+        id: `live-${ts}-${n}`,
         code: nextCode(tpl.kind),
-        ts: Date.now(),
+        ts,
       };
       setSignals((prev) => [sig, ...prev].slice(0, 40));
       pushAudit("SIGNAL_INGEST", `${sig.code} · ${sig.title}`, "VERIFIED", "INGEST-DAEMON");
@@ -296,7 +298,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       // funding signal → add a flow
       if (sig.kind === "funding" && sig.nodeId) {
         setFundingFlows((prev) => [
-          { id: `fl-${Date.now()}`, from: sig.nodeId === "nai" ? "jhb" : "nai", to: sig.nodeId!, amountUSD: 1_000_000 + Math.floor(Math.random() * 6_000_000), purpose: "Live disbursement", ts: Date.now() },
+          { id: `fl-${ts}`, from: sig.nodeId === "nai" ? "jhb" : "nai", to: sig.nodeId!, amountUSD: 1_000_000 + Math.floor(Math.random() * 6_000_000), purpose: "Live disbursement", ts },
           ...prev,
         ].slice(0, 8));
       }
@@ -375,15 +377,16 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const windowMs = WINDOW_MS[timeWindow];
-  const cutoff = Date.now() - windowMs;
+  const cutoff = clockTs - windowMs;
   const windowedSignals = useMemo(() => signals.filter((s) => typeof s?.ts === "number" && s.ts >= cutoff), [signals, cutoff]);
   const windowedFlows = useMemo(() => (fundingFlows ?? []).filter((f) => f && typeof f.ts === "number" && f.ts >= cutoff), [fundingFlows, cutoff]);
+  const diagnostics = useMemo(() => validateDashboardConstants(lastHydratedAt, refreshNonce, fundingSource), [lastHydratedAt, refreshNonce, fundingSource]);
 
   const value = useMemo<Ctx>(() => ({
     signals, nodes, fundingFlows, auditLog, directives, layers, timeWindow, windowMs,
-    windowedSignals, windowedFlows, selectedNode,
-    toggleLayer, setTimeWindow, selectNode, recordParamChange, executeStrategy, verifyPendingSignatures,
-  }), [signals, nodes, fundingFlows, auditLog, directives, layers, timeWindow, windowMs, windowedSignals, windowedFlows, selectedNode, toggleLayer, selectNode, recordParamChange, executeStrategy, verifyPendingSignatures]);
+    windowedSignals, windowedFlows, selectedNode, useSeededDemoData, diagnostics,
+    toggleLayer, setTimeWindow, setUseSeededDemoData, refreshDashboardState, selectNode, recordParamChange, executeStrategy, verifyPendingSignatures,
+  }), [signals, nodes, fundingFlows, auditLog, directives, layers, timeWindow, windowMs, windowedSignals, windowedFlows, selectedNode, useSeededDemoData, diagnostics, toggleLayer, refreshDashboardState, selectNode, recordParamChange, executeStrategy, verifyPendingSignatures]);
 
   return <DashboardCtx.Provider value={value}>{children}</DashboardCtx.Provider>;
 }
