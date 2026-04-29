@@ -1,15 +1,20 @@
+import { useState } from "react";
 import { useDashboard, type LayerKey, type TimeWindow, type MapNode } from "./dashboard-store";
 
-const LAYER_DEFS: { key: LayerKey; label: string }[] = [
-  { key: "outbreaks", label: "Outbreaks" },
-  { key: "heat", label: "Heat Zones" },
-  { key: "funding", label: "Funding Flows" },
-  { key: "hospitals", label: "Hospital Nodes" },
+const LAYER_DEFS: { key: LayerKey; label: string; marker: "amber-ping" | "amber-dim" | "teal-dot" | "diamond" | "flow" }[] = [
+  { key: "outbreaks", label: "Outbreaks", marker: "amber-ping" },
+  { key: "heat", label: "Heat Zones", marker: "amber-dim" },
+  { key: "funding", label: "Funding Flows", marker: "flow" },
+  { key: "hospitals", label: "Hospital Nodes", marker: "teal-dot" },
 ];
 const WINDOWS: TimeWindow[] = ["6H", "24H", "7D", "30D"];
 
 export function HealthMap() {
-  const { nodes, fundingFlows, layers, timeWindow, toggleLayer, setTimeWindow, selectNode } = useDashboard();
+  const { nodes, windowedFlows, windowedSignals, layers, timeWindow, toggleLayer, setTimeWindow, selectNode } = useDashboard();
+  const [legendOpen, setLegendOpen] = useState(true);
+
+  // A node only renders if there's a signal for it inside the window (outbreak nodes), or always for hospitals/depots.
+  const activeOutbreakIds = new Set(windowedSignals.filter((s) => s.kind === "outbreak").map((s) => s.nodeId));
 
   const showOutbreak = (n: MapNode) => n.kind === "outbreak" && layers.outbreaks;
   const showHospital = (n: MapNode) => (n.kind === "hospital" || n.kind === "depot") && layers.hospitals;
