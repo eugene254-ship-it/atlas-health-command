@@ -78,7 +78,7 @@ export function HealthMap() {
         })}
 
         {/* Funding flows */}
-        {layers.funding && (
+        {layers.funding && Array.isArray(windowedFlows) && windowedFlows.length > 0 && (
           <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none" viewBox="0 0 100 100">
             <defs>
               <linearGradient id="flow" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -87,11 +87,13 @@ export function HealthMap() {
               </linearGradient>
             </defs>
             {windowedFlows.map((fl) => {
+              if (!fl?.from || !fl?.to) return null;
               const a = nodes.find((n) => n.id === fl.from);
               const b = nodes.find((n) => n.id === fl.to);
               if (!a || !b) return null;
               const x1 = parseFloat(a.left); const y1 = parseFloat(a.top);
               const x2 = parseFloat(b.left); const y2 = parseFloat(b.top);
+              if ([x1, y1, x2, y2].some((v) => Number.isNaN(v))) return null;
               return (
                 <line key={fl.id} x1={x1} y1={y1} x2={x2} y2={y2}
                   stroke="url(#flow)" strokeWidth="0.25" strokeDasharray="0.6 0.4">
@@ -100,6 +102,11 @@ export function HealthMap() {
               );
             })}
           </svg>
+        )}
+        {layers.funding && Array.isArray(windowedFlows) && windowedFlows.length === 0 && (
+          <div className="absolute bottom-24 right-4 z-10 border border-titanium-700 bg-titanium-900/85 backdrop-blur-md px-3 py-2 font-mono text-[10px] text-titanium-400 uppercase tracking-widest">
+            No funding flows in window
+          </div>
         )}
       </div>
 
