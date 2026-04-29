@@ -16,7 +16,8 @@ export function HealthMap() {
   // A node only renders if there's a signal for it inside the window (outbreak nodes), or always for hospitals/depots.
   const activeOutbreakIds = new Set(windowedSignals.filter((s) => s.kind === "outbreak").map((s) => s.nodeId));
 
-  const showOutbreak = (n: MapNode) => n.kind === "outbreak" && layers.outbreaks;
+  const showOutbreak = (n: MapNode) =>
+    n.kind === "outbreak" && layers.outbreaks && activeOutbreakIds.has(n.id);
   const showHospital = (n: MapNode) => (n.kind === "hospital" || n.kind === "depot") && layers.hospitals;
 
   return (
