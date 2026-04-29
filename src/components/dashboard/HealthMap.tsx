@@ -270,13 +270,27 @@ function Bar({ label, value, tone, valueLabel }: { label: string; value: number;
 }
 
 function NodeDrilldown() {
-  const { selectedNode, selectNode } = useDashboard();
+  const { selectedNode, selectNode, windowedSignals, windowMs, timeWindow } = useDashboard();
   if (!selectedNode) return null;
   const n = selectedNode;
+
+  // Build a unified, time-ordered timeline: signals targeting this node + recorded interactions.
+  const sigEvents = windowedSignals
+    .filter((s) => s.nodeId === n.id)
+    .map((s) => ({ ts: s.ts, label: s.code, text: s.title, severity: s.severity, kind: "signal" as const }));
+  const interactionEvents = n.interactions.map((i) => ({
+    ts: i.ts, label: "INTERACT", text: i.text, severity: "stable" as const, kind: "interaction" as const,
+  }));
+  const timeline = [...sigEvents, ...interactionEvents].sort((a, b) => b.ts - a.ts).slice(0, 12);
+
+  const now = Date.now();
+  const cutoff = now - windowMs;
+  const span = Math.max(now - cutoff, 1);
+
   return (
     <div className="absolute inset-0 z-30 bg-titanium-900/80 backdrop-blur-sm flex items-center justify-center p-6"
       onClick={() => selectNode(null)}>
-      <div className="w-[460px] border border-titanium-600 bg-titanium-800 max-h-[90%] overflow-y-auto scrollbar-thin"
+      <div className="w-[520px] border border-titanium-600 bg-titanium-800 max-h-[90%] overflow-y-auto scrollbar-thin"
         onClick={(e) => e.stopPropagation()}>
         <div className="h-9 border-b border-titanium-700 flex items-center justify-between px-4 bg-titanium-900/70">
           <span className="font-mono text-[10px] uppercase tracking-widest text-titanium-400">
@@ -319,17 +333,38 @@ function NodeDrilldown() {
           </div>
 
           <div>
-            <h4 className="text-[10px] uppercase tracking-widest text-titanium-400 mb-2">Recent Interactions</h4>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-[10px] uppercase tracking-widest text-titanium-400">Timeline · {timeWindow}</h4>
+              <span className="font-mono text-[9px] text-titanium-400">{timeline.length} events</span>
+            </div>
+            {/* Axis */}
+            <div className="relative h-10 border border-titanium-700 bg-titanium-900/50 mb-2">
+              <div className="absolute inset-x-0 top-1/2 h-px bg-titanium-700" />
+              {timeline.map((e, idx) => {
+                const left = ((e.ts - cutoff) / span) * 100;
+                const color = e.severity === "critical" ? "bg-amber-glow glow-amber" : e.severity === "elevated" ? "bg-amber-glow/60" : "bg-teal-secure";
+                return (
+                  <div key={idx} className={`absolute size-1.5 ${color} top-1/2 -translate-y-1/2 -translate-x-1/2`}
+                    style={{ left: `${Math.max(0, Math.min(100, left))}%` }}
+                    title={`${e.label} · ${e.text}`} />
+                );
+              })}
+              <div className="absolute left-1 bottom-0.5 font-mono text-[8px] text-titanium-400">−{timeWindow}</div>
+              <div className="absolute right-1 bottom-0.5 font-mono text-[8px] text-titanium-400">NOW</div>
+            </div>
             <div className="space-y-1.5 max-h-40 overflow-y-auto scrollbar-thin">
-              {n.interactions.length === 0 && (
-                <div className="text-[11px] text-titanium-400 font-mono">No interactions in current window.</div>
+              {timeline.length === 0 && (
+                <div className="text-[11px] text-titanium-400 font-mono">No events in {timeWindow} window.</div>
               )}
-              {n.interactions.map((i, idx) => (
-                <div key={idx} className="text-[11px] border-l border-titanium-600 pl-2">
-                  <div className="font-mono text-[9px] text-titanium-400" suppressHydrationWarning>
-                    {new Date(i.ts).toISOString().substring(11, 19)}Z
+              {timeline.map((e, idx) => (
+                <div key={idx} className={`text-[11px] border-l pl-2 ${e.severity === "critical" ? "border-amber-glow" : e.severity === "elevated" ? "border-amber-glow/50" : "border-teal-secure/60"}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[9px] text-titanium-400" suppressHydrationWarning>
+                      {new Date(e.ts).toISOString().substring(11, 19)}Z
+                    </span>
+                    <span className="font-mono text-[9px] text-titanium-400">{e.label}</span>
                   </div>
-                  <div className="text-titanium-100">{i.text}</div>
+                  <div className="text-titanium-100">{e.text}</div>
                 </div>
               ))}
             </div>
