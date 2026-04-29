@@ -286,10 +286,34 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   const selectedNode = selectedId ? nodes.find((n) => n.id === selectedId) ?? null : null;
 
+  const verifyPendingSignatures = useCallback(() => {
+    let verified = 0;
+    let rejected = 0;
+    setAuditLog((prev) => prev.map((e) => {
+      if (e.signature !== "PENDING" && e.signature !== "PARTIAL") return e;
+      // EXECUTE / DRILLDOWN / LAYER / INGEST → VERIFIED. PARAM_CHANGE → 80% VERIFIED, 20% REJECTED.
+      const verify = e.type === "PARAM_CHANGE" ? Math.random() > 0.2 : true;
+      if (verify) verified += 1; else rejected += 1;
+      return { ...e, signature: verify ? "VERIFIED" : "REJECTED" };
+    }));
+    auditCounter.current += 1;
+    setAuditLog((prev) => [
+      { id: `aud-${auditCounter.current}`, ts: Date.now(), type: "EXECUTE", actor: "MINISTERIAL", detail: `Signature audit · ${verified} verified · ${rejected} rejected`, signature: "VERIFIED" },
+      ...prev,
+    ].slice(0, 80));
+    return { verified, rejected };
+  }, []);
+
+  const windowMs = WINDOW_MS[timeWindow];
+  const cutoff = Date.now() - windowMs;
+  const windowedSignals = useMemo(() => signals.filter((s) => s.ts >= cutoff), [signals, cutoff]);
+  const windowedFlows = useMemo(() => fundingFlows.filter((f) => f.ts >= cutoff), [fundingFlows, cutoff]);
+
   const value = useMemo<Ctx>(() => ({
-    signals, nodes, fundingFlows, auditLog, directives, layers, timeWindow, selectedNode,
-    toggleLayer, setTimeWindow, selectNode, recordParamChange, executeStrategy,
-  }), [signals, nodes, fundingFlows, auditLog, directives, layers, timeWindow, selectedNode, toggleLayer, selectNode, recordParamChange, executeStrategy]);
+    signals, nodes, fundingFlows, auditLog, directives, layers, timeWindow, windowMs,
+    windowedSignals, windowedFlows, selectedNode,
+    toggleLayer, setTimeWindow, selectNode, recordParamChange, executeStrategy, verifyPendingSignatures,
+  }), [signals, nodes, fundingFlows, auditLog, directives, layers, timeWindow, windowMs, windowedSignals, windowedFlows, selectedNode, toggleLayer, selectNode, recordParamChange, executeStrategy, verifyPendingSignatures]);
 
   return <DashboardCtx.Provider value={value}>{children}</DashboardCtx.Provider>;
 }
