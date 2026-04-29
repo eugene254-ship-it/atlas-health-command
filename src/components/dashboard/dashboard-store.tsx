@@ -191,7 +191,7 @@ const FUNDING_SEED_CONSTANTS = {
   SEED_FUNDING_TEMPLATES,
 } satisfies Record<RequiredDashboardSeedConstant, readonly unknown[]>;
 
-const OPTIONAL_FUNDING_SEEDS = {} satisfies Partial<Record<OptionalFundingSeedConstant, readonly FundingFlow[]>>;
+const OPTIONAL_FUNDING_SEEDS: Partial<Record<OptionalFundingSeedConstant, readonly FundingFlow[]>> = {};
 
 function buildFundingFlowsFromTemplates(baseTs: number) {
   const absoluteSeed = OPTIONAL_FUNDING_SEEDS.SEED_FUNDING;
