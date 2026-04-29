@@ -192,7 +192,13 @@ function nextCode(kind: SignalKind) {
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const [signals, setSignals] = useState<Signal[]>(SEED_SIGNALS);
   const [nodes, setNodes] = useState<MapNode[]>(NODES);
-  const [fundingFlows, setFundingFlows] = useState<FundingFlow[]>(SEED_FUNDING);
+  // Start empty on SSR + first client render to avoid hydration mismatch from Date.now().
+  // Hydrate seed flows in an effect (client-only) with absolute timestamps.
+  const [fundingFlows, setFundingFlows] = useState<FundingFlow[]>([]);
+  useEffect(() => {
+    const now = Date.now();
+    setFundingFlows(SEED_FUNDING_TEMPLATES.map(({ offsetMs, ...rest }) => ({ ...rest, ts: now - offsetMs })));
+  }, []);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [directives, setDirectives] = useState<Directive[]>([]);
   const [layers, setLayers] = useState<Record<LayerKey, boolean>>({
