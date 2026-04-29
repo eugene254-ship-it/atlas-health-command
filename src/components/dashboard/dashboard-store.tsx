@@ -298,7 +298,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     }));
     auditCounter.current += 1;
     setAuditLog((prev) => [
-      { id: `aud-${auditCounter.current}`, ts: Date.now(), type: "EXECUTE", actor: "MINISTERIAL", detail: `Signature audit · ${verified} verified · ${rejected} rejected`, signature: "VERIFIED" },
+      { id: `aud-${auditCounter.current}`, ts: Date.now(), type: "EXECUTE" as const, actor: "MINISTERIAL", detail: `Signature audit · ${verified} verified · ${rejected} rejected`, signature: "VERIFIED" as const },
       ...prev,
     ].slice(0, 80));
     return { verified, rejected };
