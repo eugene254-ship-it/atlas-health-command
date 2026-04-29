@@ -10,7 +10,7 @@ const LAYER_DEFS: { key: LayerKey; label: string; marker: "amber-ping" | "amber-
 const WINDOWS: TimeWindow[] = ["6H", "24H", "7D", "30D"];
 
 export function HealthMap() {
-  const { nodes, signals, fundingFlows, windowedFlows, windowedSignals, layers, timeWindow, toggleLayer, setTimeWindow, selectNode } = useDashboard();
+  const { nodes, signals, fundingFlows, windowedFlows, windowedSignals, layers, timeWindow, toggleLayer, setTimeWindow, selectNode, diagnostics, useSeededDemoData, setUseSeededDemoData, refreshDashboardState } = useDashboard();
   const [legendOpen, setLegendOpen] = useState(true);
   const [debugOpen, setDebugOpen] = useState(false);
 
@@ -159,6 +159,24 @@ export function HealthMap() {
             ))}
           </div>
         </div>
+        <div className="pt-3 mt-3 border-t border-titanium-700 space-y-2">
+          <label className="flex items-center justify-between cursor-pointer text-xs group">
+            <span className="text-titanium-100 group-hover:text-amber-glow transition-colors">Use seeded demo data</span>
+            <button
+              onClick={() => setUseSeededDemoData(!useSeededDemoData)}
+              className={`w-9 h-4 relative border ${useSeededDemoData ? "bg-teal-secure/30 border-teal-secure" : "bg-titanium-700 border-titanium-600"} transition-colors`}
+              aria-pressed={useSeededDemoData}
+            >
+              <span className={`absolute top-0.5 size-3 ${useSeededDemoData ? "left-5 bg-teal-secure" : "left-0.5 bg-titanium-400"} transition-all`} />
+            </button>
+          </label>
+          <button
+            onClick={refreshDashboardState}
+            className="w-full border border-titanium-700 px-2 py-1.5 font-mono text-[10px] uppercase tracking-widest text-titanium-300 hover:border-amber-glow/50 hover:text-amber-glow transition-colors"
+          >
+            Safe refresh state
+          </button>
+        </div>
       </div>
 
       {/* HUD: Funding Deployment */}
@@ -240,11 +258,27 @@ export function HealthMap() {
             <div>fundingFlows.total: <span className="text-teal-secure">{fundingFlows?.length ?? 0}</span></div>
             <div>windowedFlows: <span className="text-teal-secure">{windowedFlows?.length ?? 0}</span></div>
             <div>nodes: <span className="text-teal-secure">{nodes?.length ?? 0}</span></div>
+            <div>funding.source: <span className={diagnostics.fundingSource === "empty" ? "text-amber-glow" : "text-teal-secure"}>{diagnostics.fundingSource}</span></div>
+            <div>demoSeed.enabled: <span className={useSeededDemoData ? "text-teal-secure" : "text-titanium-500"}>{useSeededDemoData ? "TRUE" : "FALSE"}</span></div>
+            <div>refresh.nonce: <span className="text-teal-secure">{diagnostics.refreshNonce}</span></div>
             <div className="pt-2 border-t border-titanium-700 mt-2">
               <div className="text-titanium-400 uppercase tracking-widest text-[9px] mb-1">Layers</div>
               {Object.entries(layers).map(([k, v]) => (
                 <div key={k}>{k}: <span className={v ? "text-teal-secure" : "text-titanium-500"}>{v ? "ON" : "OFF"}</span></div>
               ))}
+            </div>
+            <div className="pt-2 border-t border-titanium-700 mt-2">
+              <div className="text-titanium-400 uppercase tracking-widest text-[9px] mb-1">Constants</div>
+              {diagnostics.constants.map((c) => (
+                <div key={c.name} className="flex items-center justify-between gap-2">
+                  <span>{c.name}</span>
+                  <span className={c.loaded && c.count > 0 ? "text-teal-secure" : "text-amber-glow"}>{c.loaded ? `${c.count} LOADED` : "MISSING"}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between gap-2">
+                <span>missing.definitions</span>
+                <span className={diagnostics.missingDefinitions.length ? "text-amber-glow" : "text-teal-secure"}>{diagnostics.missingDefinitions.length || "NONE"}</span>
+              </div>
             </div>
           </div>
         )}
