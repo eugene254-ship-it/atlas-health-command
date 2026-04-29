@@ -86,7 +86,7 @@ export function HealthMap() {
                 <stop offset="100%" stopColor="oklch(0.72 0.17 60)" stopOpacity="0.4" />
               </linearGradient>
             </defs>
-            {fundingFlows.map((fl) => {
+            {windowedFlows.map((fl) => {
               const a = nodes.find((n) => n.id === fl.from);
               const b = nodes.find((n) => n.id === fl.to);
               if (!a || !b) return null;
@@ -159,7 +159,7 @@ export function HealthMap() {
           Active Funding Deployment
         </h2>
         <div className="space-y-2 max-h-40 overflow-y-auto scrollbar-thin">
-          {fundingFlows.map((fl) => {
+          {windowedFlows.map((fl) => {
             const a = nodes.find((n) => n.id === fl.from);
             const b = nodes.find((n) => n.id === fl.to);
             return (
