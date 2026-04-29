@@ -58,6 +58,15 @@ export interface Directive {
   signatures: number;
 }
 
+export interface DashboardDiagnostics {
+  constants: { name: string; loaded: boolean; count: number; required: boolean }[];
+  templateCount: number;
+  fundingSource: "absolute-seed" | "template-fallback" | "empty";
+  missingDefinitions: string[];
+  lastHydratedAt: number | null;
+  refreshNonce: number;
+}
+
 export type LayerKey = "outbreaks" | "heat" | "funding" | "hospitals";
 export type TimeWindow = "6H" | "24H" | "7D" | "30D";
 
@@ -73,8 +82,12 @@ interface Ctx {
   windowedSignals: Signal[];
   windowedFlows: FundingFlow[];
   selectedNode: MapNode | null;
+  useSeededDemoData: boolean;
+  diagnostics: DashboardDiagnostics;
   toggleLayer: (k: LayerKey) => void;
   setTimeWindow: (w: TimeWindow) => void;
+  setUseSeededDemoData: (enabled: boolean) => void;
+  refreshDashboardState: () => void;
   selectNode: (id: string | null) => void;
   recordParamChange: (param: string, value: number) => void;
   executeStrategy: (allocation: number, stringency: number) => Directive;
