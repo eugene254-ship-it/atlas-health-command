@@ -183,6 +183,7 @@ const SEED_FUNDING_TEMPLATES: Array<Omit<FundingFlow, "ts"> & { offsetMs: number
 ];
 
 type RequiredDashboardSeedConstant = "NODES" | "SEED_SIGNALS" | "SEED_FUNDING_TEMPLATES";
+type OptionalFundingSeedConstant = "SEED_FUNDING";
 
 const FUNDING_SEED_CONSTANTS = {
   NODES,
@@ -190,17 +191,26 @@ const FUNDING_SEED_CONSTANTS = {
   SEED_FUNDING_TEMPLATES,
 } satisfies Record<RequiredDashboardSeedConstant, readonly unknown[]>;
 
+const OPTIONAL_FUNDING_SEEDS = {} satisfies Partial<Record<OptionalFundingSeedConstant, readonly FundingFlow[]>>;
+
 function buildFundingFlowsFromTemplates(baseTs: number) {
+  const absoluteSeed = OPTIONAL_FUNDING_SEEDS.SEED_FUNDING;
+  if (Array.isArray(absoluteSeed) && absoluteSeed.length > 0) return absoluteSeed.filter((flow) => typeof flow?.ts === "number");
   return SEED_FUNDING_TEMPLATES.map(({ offsetMs, ...rest }) => ({ ...rest, ts: baseTs - offsetMs }));
 }
 
 function validateDashboardConstants(lastHydratedAt: number | null, refreshNonce: number, fundingSource: DashboardDiagnostics["fundingSource"]): DashboardDiagnostics {
-  const constants = Object.entries(FUNDING_SEED_CONSTANTS).map(([name, value]) => ({
+  const requiredConstants = Object.entries(FUNDING_SEED_CONSTANTS).map(([name, value]) => ({
     name,
     loaded: Array.isArray(value),
     count: Array.isArray(value) ? value.length : 0,
     required: true,
   }));
+  const optionalConstants = (["SEED_FUNDING"] satisfies OptionalFundingSeedConstant[]).map((name) => {
+    const value = OPTIONAL_FUNDING_SEEDS[name];
+    return { name, loaded: Array.isArray(value), count: Array.isArray(value) ? value.length : 0, required: false };
+  });
+  const constants = [...requiredConstants, ...optionalConstants];
   const missingDefinitions = constants.filter((c) => c.required && (!c.loaded || c.count === 0)).map((c) => c.name);
   return { constants, templateCount: SEED_FUNDING_TEMPLATES.length, fundingSource, missingDefinitions, lastHydratedAt, refreshNonce };
 }
