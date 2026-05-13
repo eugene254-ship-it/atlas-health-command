@@ -435,11 +435,54 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const windowedFlows = useMemo(() => (fundingFlows ?? []).filter((f) => f && typeof f.ts === "number" && f.ts >= cutoff), [fundingFlows, cutoff]);
   const diagnostics = useMemo(() => validateDashboardConstants(lastHydratedAt, refreshNonce, fundingSource), [lastHydratedAt, refreshNonce, fundingSource]);
 
+  // Auto safe-refresh when diagnostics detect missing required constants or stale hydration (>2s with no hydratedAt).
+  useEffect(() => {
+    if (autoRefreshFiredRef.current) return;
+    const stale = lastHydratedAt === null;
+    const missing = diagnostics.missingDefinitions.length > 0;
+    if (!stale && !missing) return;
+    const t = window.setTimeout(() => {
+      autoRefreshFiredRef.current = true;
+      refreshDashboardState();
+    }, 1500);
+    return () => window.clearTimeout(t);
+  }, [lastHydratedAt, diagnostics.missingDefinitions.length, refreshDashboardState]);
+
+  const exportDiagnostics = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const report = {
+      generatedAt: new Date().toISOString(),
+      lastHydratedAt,
+      refreshNonce,
+      fundingSource,
+      useSeededDemoData,
+      timeWindow,
+      counts: {
+        signals: signals.length,
+        windowedSignals: windowedSignals.length,
+        fundingFlows: fundingFlows.length,
+        windowedFlows: windowedFlows.length,
+        nodes: nodes.length,
+      },
+      constants: diagnostics.constants,
+      missingDefinitions: diagnostics.missingDefinitions,
+    };
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `atlas-diagnostics-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, [diagnostics, lastHydratedAt, refreshNonce, fundingSource, useSeededDemoData, timeWindow, signals.length, windowedSignals.length, fundingFlows.length, windowedFlows.length, nodes.length]);
+
   const value = useMemo<Ctx>(() => ({
     signals, nodes, fundingFlows, auditLog, directives, layers, timeWindow, windowMs,
     windowedSignals, windowedFlows, selectedNode, useSeededDemoData, diagnostics,
-    toggleLayer, setTimeWindow, setUseSeededDemoData, refreshDashboardState, selectNode, recordParamChange, executeStrategy, verifyPendingSignatures,
-  }), [signals, nodes, fundingFlows, auditLog, directives, layers, timeWindow, windowMs, windowedSignals, windowedFlows, selectedNode, useSeededDemoData, diagnostics, toggleLayer, refreshDashboardState, selectNode, recordParamChange, executeStrategy, verifyPendingSignatures]);
+    toggleLayer, setTimeWindow, setUseSeededDemoData, refreshDashboardState, exportDiagnostics, selectNode, recordParamChange, executeStrategy, verifyPendingSignatures,
+  }), [signals, nodes, fundingFlows, auditLog, directives, layers, timeWindow, windowMs, windowedSignals, windowedFlows, selectedNode, useSeededDemoData, diagnostics, toggleLayer, setUseSeededDemoData, refreshDashboardState, exportDiagnostics, selectNode, recordParamChange, executeStrategy, verifyPendingSignatures]);
 
   return <DashboardCtx.Provider value={value}>{children}</DashboardCtx.Provider>;
 }
