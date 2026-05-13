@@ -1,13 +1,19 @@
 import { useDashboard } from "./dashboard-store";
 
 export function InsightsPanel() {
-  const { directives } = useDashboard();
+  const { directives, diagnostics } = useDashboard();
   const latest = directives[0];
   const projection = latest?.projection14d ?? defaultProjection();
+  const missingDefs = diagnostics.missingDefinitions;
 
   const max = Math.max(...projection);
   return (
     <aside className="border-l border-titanium-700 bg-titanium-800 flex flex-col min-h-0">
+      {missingDefs.length > 0 && (
+        <div className="shrink-0 border-b border-amber-glow/40 bg-amber-glow/[0.06] px-4 py-2 font-mono text-[10px] text-amber-glow uppercase tracking-widest">
+          Missing definitions · {missingDefs.join(", ")} · projections may be incomplete
+        </div>
+      )}
       <div className="h-10 shrink-0 border-b border-titanium-700 flex items-center px-4 justify-between">
         <span className="text-[10px] uppercase tracking-widest font-semibold text-titanium-400">
           Algorithmic Projection

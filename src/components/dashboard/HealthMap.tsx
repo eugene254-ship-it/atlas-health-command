@@ -10,7 +10,9 @@ const LAYER_DEFS: { key: LayerKey; label: string; marker: "amber-ping" | "amber-
 const WINDOWS: TimeWindow[] = ["6H", "24H", "7D", "30D"];
 
 export function HealthMap() {
-  const { nodes, signals, fundingFlows, windowedFlows, windowedSignals, layers, timeWindow, toggleLayer, setTimeWindow, selectNode, diagnostics, useSeededDemoData, setUseSeededDemoData, refreshDashboardState } = useDashboard();
+  const { nodes, signals, fundingFlows, windowedFlows, windowedSignals, layers, timeWindow, toggleLayer, setTimeWindow, selectNode, diagnostics, useSeededDemoData, setUseSeededDemoData, refreshDashboardState, exportDiagnostics } = useDashboard();
+  const missingDefs = diagnostics.missingDefinitions;
+  const fundingEmpty = diagnostics.fundingSource === "empty" || (Array.isArray(windowedFlows) && windowedFlows.length === 0);
   const [legendOpen, setLegendOpen] = useState(true);
   const [debugOpen, setDebugOpen] = useState(false);
 
@@ -181,8 +183,16 @@ export function HealthMap() {
 
       {/* HUD: Funding Deployment */}
       <div className="absolute bottom-4 right-4 z-10 w-72 border border-titanium-700 bg-titanium-900/85 backdrop-blur-md p-4">
-        <h2 className="text-[10px] uppercase tracking-widest font-semibold text-titanium-400 mb-3">
-          Active Funding Deployment
+        <h2 className="text-[10px] uppercase tracking-widest font-semibold text-titanium-400 mb-3 flex items-center justify-between">
+          <span>Active Funding Deployment</span>
+          {(missingDefs.length > 0 || fundingEmpty) && (
+            <span
+              className="font-mono text-[9px] text-amber-glow border border-amber-glow/50 px-1.5 py-0.5"
+              title={missingDefs.length > 0 ? `Missing: ${missingDefs.join(", ")}` : `Source: ${diagnostics.fundingSource}`}
+            >
+              {missingDefs.length > 0 ? `MISSING ${missingDefs.length}` : "NO DATA"}
+            </span>
+          )}
         </h2>
         <div className="space-y-2 max-h-40 overflow-y-auto scrollbar-thin">
           {windowedFlows.map((fl) => {
@@ -279,6 +289,12 @@ export function HealthMap() {
                 <span>missing.definitions</span>
                 <span className={diagnostics.missingDefinitions.length ? "text-amber-glow" : "text-teal-secure"}>{diagnostics.missingDefinitions.length || "NONE"}</span>
               </div>
+              <button
+                onClick={exportDiagnostics}
+                className="mt-2 w-full border border-titanium-700 px-2 py-1 font-mono text-[9px] uppercase tracking-widest text-titanium-300 hover:border-amber-glow/50 hover:text-amber-glow transition-colors"
+              >
+                Export diagnostics JSON
+              </button>
             </div>
           </div>
         )}

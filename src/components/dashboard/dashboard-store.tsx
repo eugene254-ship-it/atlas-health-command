@@ -88,6 +88,7 @@ interface Ctx {
   setTimeWindow: (w: TimeWindow) => void;
   setUseSeededDemoData: (enabled: boolean) => void;
   refreshDashboardState: () => void;
+  exportDiagnostics: () => void;
   selectNode: (id: string | null) => void;
   recordParamChange: (param: string, value: number) => void;
   executeStrategy: (allocation: number, stringency: number) => Directive;
@@ -193,9 +194,27 @@ const FUNDING_SEED_CONSTANTS = {
 
 const OPTIONAL_FUNDING_SEEDS: Partial<Record<OptionalFundingSeedConstant, readonly FundingFlow[]>> = {};
 
+// Runtime guard: validates each candidate item from OPTIONAL_FUNDING_SEEDS.SEED_FUNDING
+// before it ever reaches the funding flows pipeline. Rejects items missing ts / amountUSD / source fields.
+export function isValidSeedFundingItem(value: unknown): value is FundingFlow {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.id === "string" &&
+    typeof v.from === "string" &&
+    typeof v.to === "string" &&
+    typeof v.amountUSD === "number" && Number.isFinite(v.amountUSD) &&
+    typeof v.purpose === "string" &&
+    typeof v.ts === "number" && Number.isFinite(v.ts)
+  );
+}
+
 function buildFundingFlowsFromTemplates(baseTs: number) {
   const absoluteSeed = OPTIONAL_FUNDING_SEEDS.SEED_FUNDING;
-  if (Array.isArray(absoluteSeed) && absoluteSeed.length > 0) return absoluteSeed.filter((flow) => typeof flow?.ts === "number");
+  if (Array.isArray(absoluteSeed) && absoluteSeed.length > 0) {
+    const valid = absoluteSeed.filter(isValidSeedFundingItem);
+    if (valid.length > 0) return valid;
+  }
   return SEED_FUNDING_TEMPLATES.map(({ offsetMs, ...rest }) => ({ ...rest, ts: baseTs - offsetMs }));
 }
 
@@ -248,9 +267,26 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   // Start empty on SSR + first client render to avoid hydration mismatch from Date.now().
   // Hydrate seed flows in an effect (client-only) with absolute timestamps.
   const [fundingFlows, setFundingFlows] = useState<FundingFlow[]>([]);
-  const [useSeededDemoData, setUseSeededDemoData] = useState(true);
+  const [useSeededDemoData, setUseSeededDemoDataRaw] = useState(true);
   const [lastHydratedAt, setLastHydratedAt] = useState<number | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const autoRefreshFiredRef = useRef(false);
+
+  // Persist toggle in localStorage; load after mount to keep SSR/CSR matched.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem("atlas:useSeededDemoData");
+      if (stored === "true" || stored === "false") setUseSeededDemoDataRaw(stored === "true");
+    } catch { /* ignore */ }
+  }, []);
+
+  const setUseSeededDemoData = useCallback((enabled: boolean) => {
+    setUseSeededDemoDataRaw(enabled);
+    if (typeof window !== "undefined") {
+      try { window.localStorage.setItem("atlas:useSeededDemoData", String(enabled)); } catch { /* ignore */ }
+    }
+  }, []);
   const [clockTs, setClockTs] = useState(() => Date.UTC(2026, 3, 29, 14, 0, 0));
   const fundingSource = resolveFundingSource(fundingFlows.length > 0, useSeededDemoData);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
@@ -399,11 +435,54 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const windowedFlows = useMemo(() => (fundingFlows ?? []).filter((f) => f && typeof f.ts === "number" && f.ts >= cutoff), [fundingFlows, cutoff]);
   const diagnostics = useMemo(() => validateDashboardConstants(lastHydratedAt, refreshNonce, fundingSource), [lastHydratedAt, refreshNonce, fundingSource]);
 
+  // Auto safe-refresh when diagnostics detect missing required constants or stale hydration (>2s with no hydratedAt).
+  useEffect(() => {
+    if (autoRefreshFiredRef.current) return;
+    const stale = lastHydratedAt === null;
+    const missing = diagnostics.missingDefinitions.length > 0;
+    if (!stale && !missing) return;
+    const t = window.setTimeout(() => {
+      autoRefreshFiredRef.current = true;
+      refreshDashboardState();
+    }, 1500);
+    return () => window.clearTimeout(t);
+  }, [lastHydratedAt, diagnostics.missingDefinitions.length, refreshDashboardState]);
+
+  const exportDiagnostics = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const report = {
+      generatedAt: new Date().toISOString(),
+      lastHydratedAt,
+      refreshNonce,
+      fundingSource,
+      useSeededDemoData,
+      timeWindow,
+      counts: {
+        signals: signals.length,
+        windowedSignals: windowedSignals.length,
+        fundingFlows: fundingFlows.length,
+        windowedFlows: windowedFlows.length,
+        nodes: nodes.length,
+      },
+      constants: diagnostics.constants,
+      missingDefinitions: diagnostics.missingDefinitions,
+    };
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `atlas-diagnostics-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, [diagnostics, lastHydratedAt, refreshNonce, fundingSource, useSeededDemoData, timeWindow, signals.length, windowedSignals.length, fundingFlows.length, windowedFlows.length, nodes.length]);
+
   const value = useMemo<Ctx>(() => ({
     signals, nodes, fundingFlows, auditLog, directives, layers, timeWindow, windowMs,
     windowedSignals, windowedFlows, selectedNode, useSeededDemoData, diagnostics,
-    toggleLayer, setTimeWindow, setUseSeededDemoData, refreshDashboardState, selectNode, recordParamChange, executeStrategy, verifyPendingSignatures,
-  }), [signals, nodes, fundingFlows, auditLog, directives, layers, timeWindow, windowMs, windowedSignals, windowedFlows, selectedNode, useSeededDemoData, diagnostics, toggleLayer, refreshDashboardState, selectNode, recordParamChange, executeStrategy, verifyPendingSignatures]);
+    toggleLayer, setTimeWindow, setUseSeededDemoData, refreshDashboardState, exportDiagnostics, selectNode, recordParamChange, executeStrategy, verifyPendingSignatures,
+  }), [signals, nodes, fundingFlows, auditLog, directives, layers, timeWindow, windowMs, windowedSignals, windowedFlows, selectedNode, useSeededDemoData, diagnostics, toggleLayer, setUseSeededDemoData, refreshDashboardState, exportDiagnostics, selectNode, recordParamChange, executeStrategy, verifyPendingSignatures]);
 
   return <DashboardCtx.Provider value={value}>{children}</DashboardCtx.Provider>;
 }
