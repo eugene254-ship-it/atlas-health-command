@@ -289,6 +289,12 @@ export function HealthMap() {
                 <span>missing.definitions</span>
                 <span className={diagnostics.missingDefinitions.length ? "text-amber-glow" : "text-teal-secure"}>{diagnostics.missingDefinitions.length || "NONE"}</span>
               </div>
+              <button
+                onClick={exportDiagnostics}
+                className="mt-2 w-full border border-titanium-700 px-2 py-1 font-mono text-[9px] uppercase tracking-widest text-titanium-300 hover:border-amber-glow/50 hover:text-amber-glow transition-colors"
+              >
+                Export diagnostics JSON
+              </button>
             </div>
           </div>
         )}
