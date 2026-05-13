@@ -88,6 +88,7 @@ interface Ctx {
   setTimeWindow: (w: TimeWindow) => void;
   setUseSeededDemoData: (enabled: boolean) => void;
   refreshDashboardState: () => void;
+  exportDiagnostics: () => void;
   selectNode: (id: string | null) => void;
   recordParamChange: (param: string, value: number) => void;
   executeStrategy: (allocation: number, stringency: number) => Directive;
