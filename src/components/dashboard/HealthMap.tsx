@@ -183,8 +183,16 @@ export function HealthMap() {
 
       {/* HUD: Funding Deployment */}
       <div className="absolute bottom-4 right-4 z-10 w-72 border border-titanium-700 bg-titanium-900/85 backdrop-blur-md p-4">
-        <h2 className="text-[10px] uppercase tracking-widest font-semibold text-titanium-400 mb-3">
-          Active Funding Deployment
+        <h2 className="text-[10px] uppercase tracking-widest font-semibold text-titanium-400 mb-3 flex items-center justify-between">
+          <span>Active Funding Deployment</span>
+          {(missingDefs.length > 0 || fundingEmpty) && (
+            <span
+              className="font-mono text-[9px] text-amber-glow border border-amber-glow/50 px-1.5 py-0.5"
+              title={missingDefs.length > 0 ? `Missing: ${missingDefs.join(", ")}` : `Source: ${diagnostics.fundingSource}`}
+            >
+              {missingDefs.length > 0 ? `MISSING ${missingDefs.length}` : "NO DATA"}
+            </span>
+          )}
         </h2>
         <div className="space-y-2 max-h-40 overflow-y-auto scrollbar-thin">
           {windowedFlows.map((fl) => {
