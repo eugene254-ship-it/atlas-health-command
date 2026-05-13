@@ -267,9 +267,26 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   // Start empty on SSR + first client render to avoid hydration mismatch from Date.now().
   // Hydrate seed flows in an effect (client-only) with absolute timestamps.
   const [fundingFlows, setFundingFlows] = useState<FundingFlow[]>([]);
-  const [useSeededDemoData, setUseSeededDemoData] = useState(true);
+  const [useSeededDemoData, setUseSeededDemoDataRaw] = useState(true);
   const [lastHydratedAt, setLastHydratedAt] = useState<number | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const autoRefreshFiredRef = useRef(false);
+
+  // Persist toggle in localStorage; load after mount to keep SSR/CSR matched.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem("atlas:useSeededDemoData");
+      if (stored === "true" || stored === "false") setUseSeededDemoDataRaw(stored === "true");
+    } catch { /* ignore */ }
+  }, []);
+
+  const setUseSeededDemoData = useCallback((enabled: boolean) => {
+    setUseSeededDemoDataRaw(enabled);
+    if (typeof window !== "undefined") {
+      try { window.localStorage.setItem("atlas:useSeededDemoData", String(enabled)); } catch { /* ignore */ }
+    }
+  }, []);
   const [clockTs, setClockTs] = useState(() => Date.UTC(2026, 3, 29, 14, 0, 0));
   const fundingSource = resolveFundingSource(fundingFlows.length > 0, useSeededDemoData);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
