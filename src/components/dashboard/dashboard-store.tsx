@@ -193,9 +193,27 @@ const FUNDING_SEED_CONSTANTS = {
 
 const OPTIONAL_FUNDING_SEEDS: Partial<Record<OptionalFundingSeedConstant, readonly FundingFlow[]>> = {};
 
+// Runtime guard: validates each candidate item from OPTIONAL_FUNDING_SEEDS.SEED_FUNDING
+// before it ever reaches the funding flows pipeline. Rejects items missing ts / amountUSD / source fields.
+export function isValidSeedFundingItem(value: unknown): value is FundingFlow {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.id === "string" &&
+    typeof v.from === "string" &&
+    typeof v.to === "string" &&
+    typeof v.amountUSD === "number" && Number.isFinite(v.amountUSD) &&
+    typeof v.purpose === "string" &&
+    typeof v.ts === "number" && Number.isFinite(v.ts)
+  );
+}
+
 function buildFundingFlowsFromTemplates(baseTs: number) {
   const absoluteSeed = OPTIONAL_FUNDING_SEEDS.SEED_FUNDING;
-  if (Array.isArray(absoluteSeed) && absoluteSeed.length > 0) return absoluteSeed.filter((flow) => typeof flow?.ts === "number");
+  if (Array.isArray(absoluteSeed) && absoluteSeed.length > 0) {
+    const valid = absoluteSeed.filter(isValidSeedFundingItem);
+    if (valid.length > 0) return valid;
+  }
   return SEED_FUNDING_TEMPLATES.map(({ offsetMs, ...rest }) => ({ ...rest, ts: baseTs - offsetMs }));
 }
 
