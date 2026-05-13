@@ -10,7 +10,9 @@ const LAYER_DEFS: { key: LayerKey; label: string; marker: "amber-ping" | "amber-
 const WINDOWS: TimeWindow[] = ["6H", "24H", "7D", "30D"];
 
 export function HealthMap() {
-  const { nodes, signals, fundingFlows, windowedFlows, windowedSignals, layers, timeWindow, toggleLayer, setTimeWindow, selectNode, diagnostics, useSeededDemoData, setUseSeededDemoData, refreshDashboardState } = useDashboard();
+  const { nodes, signals, fundingFlows, windowedFlows, windowedSignals, layers, timeWindow, toggleLayer, setTimeWindow, selectNode, diagnostics, useSeededDemoData, setUseSeededDemoData, refreshDashboardState, exportDiagnostics } = useDashboard();
+  const missingDefs = diagnostics.missingDefinitions;
+  const fundingEmpty = diagnostics.fundingSource === "empty" || (Array.isArray(windowedFlows) && windowedFlows.length === 0);
   const [legendOpen, setLegendOpen] = useState(true);
   const [debugOpen, setDebugOpen] = useState(false);
 
